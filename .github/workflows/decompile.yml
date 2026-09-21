@@ -1,0 +1,49 @@
+name: Download and decompile APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  decompile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download APK
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          curl -L --fail --retry 3 \
+            -o work/onstream.apk \
+            'https://onstreamapks.net/OnStream-New-Release-.apk'
+          file work/onstream.apk
+          sha256sum work/onstream.apk | tee work/SHA256SUMS.txt
+
+      - name: Install decompilation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apktool jadx
+
+      - name: Decompile with apktool
+        run: |
+          mkdir -p output
+          apktool d work/onstream.apk \
+            -o output/apktool \
+            --force
+
+      - name: Decompile with JADX
+        run: |
+          jadx \
+            --output-dir output/jadx \
+            work/onstream.apk
+
+      - name: Upload decompiled files
+        uses: actions/upload-artifact@v4
+        with:
+          name: onstream-decompiled
+          path: |
+            output/
+            work/SHA256SUMS.txt
+          if-no-files-found: error
